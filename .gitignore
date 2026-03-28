@@ -1,6 +1,8 @@
 tests
 .env
-docs/superpowers
+docs
+plans
+.DS_Store
 
 # Added by cargo
 
