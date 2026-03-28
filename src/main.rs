@@ -24,6 +24,14 @@ fn main() {
         return;
     }
 
+    if let Command::Login { profile } = &cli.command {
+        if let Err(e) = commands::login::execute(profile) {
+            eprintln!("Error: {e}");
+            process::exit(e.exit_code());
+        }
+        return;
+    }
+
     let config = match config::resolve(&cli) {
         Ok(c) => c,
         Err(e) => {
@@ -81,7 +89,7 @@ fn main() {
         Command::Free { path } => {
             commands::session::execute_free(&client, path.as_deref(), config.json)
         }
-        Command::Completions { .. } => unreachable!(),
+        Command::Login { .. } | Command::Completions { .. } => unreachable!(),
     };
 
     if let Err(e) = result {

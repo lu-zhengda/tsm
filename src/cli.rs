@@ -142,6 +142,13 @@ pub enum Command {
         path: Option<String>,
     },
 
+    /// Save connection credentials to config file
+    Login {
+        /// Profile name to save as
+        #[arg(long, default_value = "default")]
+        profile: String,
+    },
+
     /// Generate shell completions
     Completions {
         /// Shell type

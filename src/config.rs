@@ -29,7 +29,7 @@ struct ProfileConfig {
     password: Option<String>,
 }
 
-fn default_config_path() -> PathBuf {
+pub fn default_config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("~/.config"))
         .join("tsm")
@@ -94,11 +94,14 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         None => ProfileConfig::default(),
     };
 
-    // Layer 2: Env vars
-    let env_host = std::env::var("TSM_HOST").ok();
-    let env_port = std::env::var("TSM_PORT").ok().and_then(|p| p.parse().ok());
-    let env_username = std::env::var("TSM_USERNAME").ok();
-    let env_password = std::env::var("TSM_PASSWORD").ok();
+    // Layer 2: Env vars (ignore empty values)
+    let env_host = std::env::var("TSM_HOST").ok().filter(|s| !s.is_empty());
+    let env_port = std::env::var("TSM_PORT")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .and_then(|p| p.parse().ok());
+    let env_username = std::env::var("TSM_USERNAME").ok().filter(|s| !s.is_empty());
+    let env_password = std::env::var("TSM_PASSWORD").ok().filter(|s| !s.is_empty());
 
     // Layer 3: CLI flags (highest priority)
     let host = cli
@@ -134,6 +137,10 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Env-var tests must run sequentially to avoid races.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn make_cli(
         host: Option<&str>,
@@ -156,6 +163,7 @@ mod tests {
 
     #[test]
     fn test_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::remove_var("TSM_HOST");
             std::env::remove_var("TSM_PORT");
@@ -174,6 +182,7 @@ mod tests {
 
     #[test]
     fn test_cli_flags_override_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var("TSM_HOST", "envhost");
             std::env::set_var("TSM_PORT", "1234");
@@ -193,6 +202,7 @@ mod tests {
 
     #[test]
     fn test_env_vars_override_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var("TSM_HOST", "envhost");
             std::env::set_var("TSM_PORT", "4321");

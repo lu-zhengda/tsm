@@ -1,6 +1,7 @@
 pub mod add;
 pub mod info;
 pub mod list;
+pub mod login;
 pub mod remove;
 pub mod session;
 pub mod speed;
