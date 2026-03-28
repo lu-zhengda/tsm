@@ -1,11 +1,33 @@
 # tsm
 
-A modern CLI for [Transmission](https://transmissionbt.com/) BitTorrent client.
+A CLI for [Transmission](https://transmissionbt.com/) BitTorrent client.
 
 ## Install
 
+### From crates.io (when published)
+
 ```bash
+cargo install tsm
+```
+
+### From GitHub
+
+```bash
+cargo install --git https://github.com/lu-zhengda/tsm --tag v0.1.0
+```
+
+### From source
+
+```bash
+git clone https://github.com/lu-zhengda/tsm.git
+cd tsm
 cargo install --path .
+```
+
+### Verify
+
+```bash
+tsm --version
 ```
 
 ## Quick Start
