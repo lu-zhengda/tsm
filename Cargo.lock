@@ -683,7 +683,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d282ade6016312faf3e41e57ebbba0c073e4056dab1232ab1cb624199648f8ed"
 
 [[package]]
-name = "tsm"
+name = "transmission-cli"
 version = "0.1.0"
 dependencies = [
  "clap",

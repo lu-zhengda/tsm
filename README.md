@@ -4,10 +4,16 @@ A CLI for [Transmission](https://transmissionbt.com/) BitTorrent client.
 
 ## Install
 
+### From crates.io
+
+```bash
+cargo install transmission-cli
+```
+
 ### From GitHub
 
 ```bash
-cargo install --git https://github.com/lu-zhengda/tsm --tag v0.1.0
+cargo install --git https://github.com/lu-zhengda/tsm
 ```
 
 ### From source
