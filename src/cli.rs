@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub username: Option<String>,
 
-    /// Auth password
+    /// Auth password (visible in process list — prefer `tsm login` or TSM_PASSWORD env var)
     #[arg(long, global = true)]
     pub password: Option<String>,
 

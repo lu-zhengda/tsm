@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::Value;
 use ureq::Agent;
 
@@ -14,9 +15,27 @@ pub struct TransmissionClient {
     agent: Agent,
 }
 
+fn validate_host(host: &str) -> Result<(), Error> {
+    if host.is_empty() {
+        return Err(Error::Config("Host cannot be empty".to_string()));
+    }
+    if host.contains(['/', '@', '#', '?', ' ']) {
+        return Err(Error::Config(format!(
+            "Invalid host: '{host}' contains disallowed characters"
+        )));
+    }
+    Ok(())
+}
+
 impl TransmissionClient {
     pub fn new(config: &Config) -> Result<Self, Error> {
-        let url = format!("http://{}:{}/transmission/rpc", config.host, config.port);
+        validate_host(&config.host)?;
+
+        let scheme = if config.port == 443 { "https" } else { "http" };
+        let url = format!(
+            "{scheme}://{}:{}/transmission/rpc",
+            config.host, config.port
+        );
         let auth = match (&config.username, &config.password) {
             (Some(u), Some(p)) => Some((u.clone(), p.clone())),
             (None, None) => None,
@@ -81,10 +100,9 @@ impl TransmissionClient {
         }
 
         if let Some((username, password)) = &self.auth {
-            req = req.header(
-                "Authorization",
-                &format!("Basic {}", basic_auth_encode(username, password)),
-            );
+            let credentials = format!("{username}:{password}");
+            let encoded = STANDARD.encode(credentials.as_bytes());
+            req = req.header("Authorization", &format!("Basic {encoded}"));
         }
 
         let response = req.send(body.as_bytes()).map_err(|e| {
@@ -144,45 +162,14 @@ impl TransmissionClient {
     }
 }
 
-fn basic_auth_encode(username: &str, password: &str) -> String {
-    let input = format!("{username}:{password}");
-    let bytes = input.as_bytes();
-
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity(bytes.len().div_ceil(3) * 4);
-
-    for chunk in bytes.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
-        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-
-        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-
-        if chunk.len() > 1 {
-            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-
-        if chunk.len() > 2 {
-            result.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-    }
-
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_basic_auth_encode() {
-        assert_eq!(basic_auth_encode("user", "pass"), "dXNlcjpwYXNz");
+        let encoded = STANDARD.encode(b"user:pass");
+        assert_eq!(encoded, "dXNlcjpwYXNz");
     }
 
     #[test]
@@ -198,6 +185,20 @@ mod tests {
         let client = TransmissionClient::new(&config).unwrap();
         assert_eq!(client.url, "http://myhost:1234/transmission/rpc");
         assert!(client.auth.is_some());
+    }
+
+    #[test]
+    fn test_client_https_on_443() {
+        let config = Config {
+            host: "myhost".to_string(),
+            port: 443,
+            username: None,
+            password: None,
+            json: false,
+        };
+
+        let client = TransmissionClient::new(&config).unwrap();
+        assert_eq!(client.url, "https://myhost:443/transmission/rpc");
     }
 
     #[test]
@@ -236,5 +237,18 @@ mod tests {
         };
 
         assert!(TransmissionClient::new(&config2).is_err());
+    }
+
+    #[test]
+    fn test_invalid_host_rejected() {
+        let config = Config {
+            host: "evil.com/foo#".to_string(),
+            port: 9091,
+            username: None,
+            password: None,
+            json: false,
+        };
+
+        assert!(TransmissionClient::new(&config).is_err());
     }
 }

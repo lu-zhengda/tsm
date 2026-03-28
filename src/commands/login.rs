@@ -15,7 +15,7 @@ struct ConfigFile {
     profiles: Option<HashMap<String, ProfileEntry>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 struct ProfileEntry {
     host: String,
     port: u16,
@@ -25,7 +25,37 @@ struct ProfileEntry {
     password: Option<String>,
 }
 
+impl std::fmt::Debug for ProfileEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProfileEntry")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
+}
+
+fn validate_profile_name(name: &str) -> Result<(), Error> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(Error::Config(
+            "Profile name must be 1-64 characters".to_string(),
+        ));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(Error::Config(
+            "Profile name may only contain [a-zA-Z0-9_-]".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn execute(profile_name: &str) -> Result<(), Error> {
+    validate_profile_name(profile_name)?;
+
     println!("Configuring profile: {profile_name}");
     println!();
 
@@ -108,37 +138,9 @@ fn prompt_optional(label: &str) -> Result<Option<String>, Error> {
 }
 
 fn prompt_password(label: &str) -> Result<String, Error> {
-    // Try to disable echo for password input
-    print!("{label}: ");
-    io::stdout().flush().ok();
-
-    let password = read_password_from_tty()?;
-    println!(); // newline after hidden input
+    let password = rpassword::prompt_password(format!("{label}: "))
+        .map_err(|e| Error::Config(format!("Failed to read password: {e}")))?;
     Ok(password)
-}
-
-fn read_password_from_tty() -> Result<String, Error> {
-    // Use stty to disable echo on Unix
-    let stty_result = std::process::Command::new("stty")
-        .arg("-echo")
-        .stdin(std::process::Stdio::inherit())
-        .status();
-
-    let mut input = String::new();
-    let result = io::stdin().read_line(&mut input).map_err(Error::Io);
-
-    // Always re-enable echo
-    let _ = std::process::Command::new("stty")
-        .arg("echo")
-        .stdin(std::process::Stdio::inherit())
-        .status();
-
-    if stty_result.is_err() {
-        // Fallback: stty not available, password was visible
-    }
-
-    result?;
-    Ok(input.trim().to_string())
 }
 
 fn save_profile(
@@ -149,20 +151,43 @@ fn save_profile(
     username: &Option<String>,
     password: &Option<String>,
 ) -> Result<(), Error> {
-    // Ensure parent directory exists
+    // Ensure parent directory exists with 700 permissions
     if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            Error::Config(format!(
-                "Cannot create config directory {}: {e}",
-                parent.display()
-            ))
-        })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(parent)
+                .map_err(|e| {
+                    Error::Config(format!(
+                        "Cannot create config directory {}: {e}",
+                        parent.display()
+                    ))
+                })?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                Error::Config(format!(
+                    "Cannot create config directory {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
     }
 
     // Load existing config or create new
     let mut config_file = match std::fs::read_to_string(config_path) {
-        Ok(content) => toml::from_str::<ConfigFile>(&content).unwrap_or_default(),
-        Err(_) => ConfigFile::default(),
+        Ok(content) => toml::from_str::<ConfigFile>(&content).map_err(|e| {
+            Error::Config(format!(
+                "Existing config file is invalid: {e}\nFix or delete {} before running login.",
+                config_path.display()
+            ))
+        })?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => ConfigFile::default(),
+        Err(e) => return Err(Error::Config(format!("Cannot read config file: {e}"))),
     };
 
     let entry = ProfileEntry {
@@ -182,16 +207,30 @@ fn save_profile(
     let toml_string = toml::to_string_pretty(&config_file)
         .map_err(|e| Error::Config(format!("Failed to serialize config: {e}")))?;
 
-    std::fs::write(config_path, toml_string)
-        .map_err(|e| Error::Config(format!("Failed to write config: {e}")))?;
-
-    // Set file permissions to 600 (owner read/write only)
+    // Write atomically: create temp file with 600 perms, then rename
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let perms = std::fs::Permissions::from_mode(0o600);
-        std::fs::set_permissions(config_path, perms)
-            .map_err(|e| Error::Config(format!("Failed to set config file permissions: {e}")))?;
+        use std::os::unix::fs::OpenOptionsExt;
+        let tmp_path = config_path.with_extension("tmp");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&tmp_path)
+            .map_err(|e| Error::Config(format!("Failed to write config: {e}")))?;
+        file.write_all(toml_string.as_bytes())
+            .map_err(|e| Error::Config(format!("Failed to write config: {e}")))?;
+        file.flush()
+            .map_err(|e| Error::Config(format!("Failed to flush config: {e}")))?;
+        std::fs::rename(&tmp_path, config_path)
+            .map_err(|e| Error::Config(format!("Failed to save config: {e}")))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(config_path, toml_string)
+            .map_err(|e| Error::Config(format!("Failed to write config: {e}")))?;
     }
 
     Ok(())

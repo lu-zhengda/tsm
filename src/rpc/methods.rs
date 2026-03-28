@@ -1,3 +1,4 @@
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 
 use crate::client::TransmissionClient;
@@ -129,7 +130,7 @@ pub fn torrent_add(
             )));
         }
         let file_bytes = std::fs::read(source).map_err(Error::Io)?;
-        let encoded = base64_encode(&file_bytes);
+        let encoded = STANDARD.encode(&file_bytes);
         params.insert("metainfo".to_string(), json!(encoded));
     }
 
@@ -192,44 +193,15 @@ pub fn free_space(client: &TransmissionClient, path: &str) -> Result<FreeSpace, 
         .map_err(|e| Error::Rpc(format!("Failed to parse free space: {e}")))
 }
 
-fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity(data.len().div_ceil(3) * 4);
-
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
-        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-
-        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-
-        if chunk.len() > 1 {
-            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-
-        if chunk.len() > 2 {
-            result.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-    }
-
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_base64_encode() {
-        assert_eq!(base64_encode(b"Hello"), "SGVsbG8=");
-        assert_eq!(base64_encode(b"Hi"), "SGk=");
-        assert_eq!(base64_encode(b""), "");
-        assert_eq!(base64_encode(b"abc"), "YWJj");
+        assert_eq!(STANDARD.encode(b"Hello"), "SGVsbG8=");
+        assert_eq!(STANDARD.encode(b"Hi"), "SGk=");
+        assert_eq!(STANDARD.encode(b""), "");
+        assert_eq!(STANDARD.encode(b"abc"), "YWJj");
     }
 }

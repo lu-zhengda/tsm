@@ -6,13 +6,25 @@ use serde::Deserialize;
 use crate::cli::Cli;
 use crate::error::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     pub host: String,
     pub port: u16,
     pub username: Option<String>,
     pub password: Option<String>,
     pub json: bool,
+}
+
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .field("json", &self.json)
+            .finish()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,7 +43,8 @@ struct ProfileConfig {
 
 pub fn default_config_path() -> PathBuf {
     dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .or_else(|| dirs::home_dir().map(|h| h.join(".config")))
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("tsm")
         .join("config.toml")
 }
