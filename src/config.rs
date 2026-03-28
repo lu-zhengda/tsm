@@ -1,0 +1,217 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use serde::Deserialize;
+
+use crate::cli::Cli;
+use crate::error::Error;
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub json: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConfigFile {
+    default: Option<ProfileConfig>,
+    profiles: Option<HashMap<String, ProfileConfig>>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ProfileConfig {
+    host: Option<String>,
+    port: Option<u16>,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+fn default_config_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .join("tsm")
+        .join("config.toml")
+}
+
+fn load_config_file(path: &std::path::Path) -> Result<Option<ConfigFile>, Error> {
+    match std::fs::read_to_string(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(Error::Config(format!("Cannot read config file: {e}"))),
+        Ok(content) => toml::from_str(&content)
+            .map(Some)
+            .map_err(|e| Error::Config(format!("Invalid config file syntax: {e}"))),
+    }
+}
+
+fn resolve_profile(file: &ConfigFile, profile_name: &str) -> ProfileConfig {
+    if profile_name == "default"
+        && let Some(default) = &file.default
+    {
+        return ProfileConfig {
+            host: default.host.clone(),
+            port: default.port,
+            username: default.username.clone(),
+            password: default.password.clone(),
+        };
+    }
+
+    if let Some(profiles) = &file.profiles
+        && let Some(profile) = profiles.get(profile_name)
+    {
+        return ProfileConfig {
+            host: profile.host.clone(),
+            port: profile.port,
+            username: profile.username.clone(),
+            password: profile.password.clone(),
+        };
+    }
+
+    ProfileConfig::default()
+}
+
+pub fn resolve(cli: &Cli) -> Result<Config, Error> {
+    // Load .env file (best-effort)
+    let _ = dotenvy::dotenv();
+    resolve_from_env(cli)
+}
+
+fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
+    // Layer 1: Config file
+    let config_path = cli.config.clone().unwrap_or_else(default_config_path);
+    let file_profile = match load_config_file(&config_path)? {
+        Some(f) => {
+            let env_profile = std::env::var("TSM_PROFILE").ok();
+            let profile_name = cli
+                .profile
+                .as_deref()
+                .or(env_profile.as_deref())
+                .unwrap_or("default");
+            resolve_profile(&f, profile_name)
+        }
+        None => ProfileConfig::default(),
+    };
+
+    // Layer 2: Env vars
+    let env_host = std::env::var("TSM_HOST").ok();
+    let env_port = std::env::var("TSM_PORT").ok().and_then(|p| p.parse().ok());
+    let env_username = std::env::var("TSM_USERNAME").ok();
+    let env_password = std::env::var("TSM_PASSWORD").ok();
+
+    // Layer 3: CLI flags (highest priority)
+    let host = cli
+        .host
+        .clone()
+        .or(env_host)
+        .or(file_profile.host)
+        .unwrap_or_else(|| "localhost".to_string());
+
+    let port = cli.port.or(env_port).or(file_profile.port).unwrap_or(9091);
+
+    let username = cli
+        .username
+        .clone()
+        .or(env_username)
+        .or(file_profile.username);
+
+    let password = cli
+        .password
+        .clone()
+        .or(env_password)
+        .or(file_profile.password);
+
+    Ok(Config {
+        host,
+        port,
+        username,
+        password,
+        json: cli.json,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_cli(
+        host: Option<&str>,
+        port: Option<u16>,
+        username: Option<&str>,
+        password: Option<&str>,
+        json: bool,
+    ) -> Cli {
+        Cli {
+            host: host.map(String::from),
+            port,
+            username: username.map(String::from),
+            password: password.map(String::from),
+            json,
+            config: Some(PathBuf::from("/nonexistent/config.toml")),
+            profile: None,
+            command: crate::cli::Command::Session,
+        }
+    }
+
+    #[test]
+    fn test_defaults() {
+        unsafe {
+            std::env::remove_var("TSM_HOST");
+            std::env::remove_var("TSM_PORT");
+            std::env::remove_var("TSM_USERNAME");
+            std::env::remove_var("TSM_PASSWORD");
+        }
+
+        let cli = make_cli(None, None, None, None, false);
+        let config = resolve_from_env(&cli).unwrap();
+        assert_eq!(config.host, "localhost");
+        assert_eq!(config.port, 9091);
+        assert!(config.username.is_none());
+        assert!(config.password.is_none());
+        assert!(!config.json);
+    }
+
+    #[test]
+    fn test_cli_flags_override_env() {
+        unsafe {
+            std::env::set_var("TSM_HOST", "envhost");
+            std::env::set_var("TSM_PORT", "1234");
+        }
+
+        let cli = make_cli(Some("clihost"), Some(5678), None, None, true);
+        let config = resolve_from_env(&cli).unwrap();
+        assert_eq!(config.host, "clihost");
+        assert_eq!(config.port, 5678);
+        assert!(config.json);
+
+        unsafe {
+            std::env::remove_var("TSM_HOST");
+            std::env::remove_var("TSM_PORT");
+        }
+    }
+
+    #[test]
+    fn test_env_vars_override_defaults() {
+        unsafe {
+            std::env::set_var("TSM_HOST", "envhost");
+            std::env::set_var("TSM_PORT", "4321");
+            std::env::set_var("TSM_USERNAME", "envuser");
+            std::env::set_var("TSM_PASSWORD", "envpass");
+        }
+
+        let cli = make_cli(None, None, None, None, false);
+        let config = resolve_from_env(&cli).unwrap();
+        assert_eq!(config.host, "envhost");
+        assert_eq!(config.port, 4321);
+        assert_eq!(config.username.as_deref(), Some("envuser"));
+        assert_eq!(config.password.as_deref(), Some("envpass"));
+
+        unsafe {
+            std::env::remove_var("TSM_HOST");
+            std::env::remove_var("TSM_PORT");
+            std::env::remove_var("TSM_USERNAME");
+            std::env::remove_var("TSM_PASSWORD");
+        }
+    }
+}

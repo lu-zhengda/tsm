@@ -1,0 +1,7 @@
+tests
+.env
+docs/superpowers
+
+# Added by cargo
+
+/target
