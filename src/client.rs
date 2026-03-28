@@ -180,6 +180,9 @@ mod tests {
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -195,6 +198,9 @@ mod tests {
             username: None,
             password: None,
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -209,6 +215,9 @@ mod tests {
             username: None,
             password: None,
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -224,6 +233,9 @@ mod tests {
             username: Some("admin".to_string()),
             password: None,
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         assert!(TransmissionClient::new(&config).is_err());
@@ -234,6 +246,9 @@ mod tests {
             username: None,
             password: Some("secret".to_string()),
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         assert!(TransmissionClient::new(&config2).is_err());
@@ -247,6 +262,9 @@ mod tests {
             username: None,
             password: None,
             json: false,
+            no_color: false,
+            on_complete_script: None,
+            on_complete_webhook: None,
         };
 
         assert!(TransmissionClient::new(&config).is_err());

@@ -81,6 +81,9 @@ pub fn execute(profile_name: &str) -> Result<(), Error> {
         username: username.clone(),
         password: password.clone(),
         json: false,
+        no_color: false,
+        on_complete_script: None,
+        on_complete_webhook: None,
     };
 
     let client = TransmissionClient::new(&config)?;

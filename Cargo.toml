@@ -1,6 +1,6 @@
 [package]
 name = "transmission-cli"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 description = "A CLI for Transmission BitTorrent client"
 license = "MIT"
@@ -17,8 +17,11 @@ base64 = "0.22.1"
 clap = { version = "4.6.0", features = ["derive"] }
 clap_complete = "4.6.0"
 comfy-table = "7.2.2"
+crossterm = "0.29"
+ctrlc = "3.5.2"
 dirs = "6.0.0"
 dotenvy = "0.15.7"
+notify = "8.2.0"
 rpassword = "7.4.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

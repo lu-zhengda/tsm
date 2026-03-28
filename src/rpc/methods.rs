@@ -193,6 +193,32 @@ pub fn free_space(client: &TransmissionClient, path: &str) -> Result<FreeSpace, 
         .map_err(|e| Error::Rpc(format!("Failed to parse free space: {e}")))
 }
 
+pub fn torrent_set_location(
+    client: &TransmissionClient,
+    id: i64,
+    location: &str,
+) -> Result<Value, Error> {
+    let params = json!({ "ids": [id], "location": location, "move": true });
+    client.request("torrent-set-location", Some(params))
+}
+
+pub fn torrent_set_labels(
+    client: &TransmissionClient,
+    id: i64,
+    labels: Vec<String>,
+) -> Result<Value, Error> {
+    let params = json!({ "ids": [id], "labels": labels });
+    client.request("torrent-set", Some(params))
+}
+
+pub fn port_test(client: &TransmissionClient) -> Result<bool, Error> {
+    let result = client.request("port-test", None)?;
+    Ok(result
+        .get("port-is-open")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

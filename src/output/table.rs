@@ -1,5 +1,6 @@
-use comfy_table::{ContentArrangement, Table};
+use comfy_table::{Cell, ContentArrangement, Table};
 
+use super::color;
 use crate::rpc::types::*;
 
 pub fn format_size(bytes: i64) -> String {
@@ -73,24 +74,34 @@ pub fn status_string(status: i64) -> &'static str {
     }
 }
 
-pub fn print_torrent_list(torrents: &[Torrent]) {
+pub fn print_torrent_list(torrents: &[Torrent], no_color: bool) {
     let mut table = Table::new();
     table.set_content_arrangement(ContentArrangement::Dynamic);
     table.set_header(vec![
-        "ID", "Status", "Name", "Size", "Done", "Down", "Up", "ETA", "Ratio",
+        "ID", "Status", "Name", "Size", "Progress", "Down", "Up", "ETA", "Ratio",
     ]);
 
     for t in torrents {
+        let status_cell = if no_color {
+            Cell::new(status_string(t.status))
+        } else if let Some(c) = color::status_color(t.status) {
+            Cell::new(status_string(t.status)).fg(c)
+        } else {
+            Cell::new(status_string(t.status))
+        };
+
+        let progress = color::format_progress_bar(t.percent_done, 10);
+
         table.add_row(vec![
-            t.id.to_string(),
-            status_string(t.status).to_string(),
-            truncate_name(&t.name, 40),
-            format_size(t.total_size),
-            format!("{:.0}%", t.percent_done * 100.0),
-            format_speed(t.rate_download),
-            format_speed(t.rate_upload),
-            format_eta(t.eta),
-            format_ratio(t.upload_ratio),
+            Cell::new(t.id),
+            status_cell,
+            Cell::new(truncate_name(&t.name, 40)),
+            Cell::new(format_size(t.total_size)),
+            Cell::new(progress),
+            Cell::new(format_speed(t.rate_download)),
+            Cell::new(format_speed(t.rate_upload)),
+            Cell::new(format_eta(t.eta)),
+            Cell::new(format_ratio(t.upload_ratio)),
         ]);
     }
 

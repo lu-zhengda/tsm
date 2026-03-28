@@ -9,7 +9,9 @@ pub fn execute(
     client: &TransmissionClient,
     filter: &Option<FilterStatus>,
     sort: &Option<SortField>,
+    ids_only: bool,
     json_output: bool,
+    no_color: bool,
 ) -> Result<(), Error> {
     let mut torrents = methods::torrent_get_list(client)?;
 
@@ -21,13 +23,20 @@ pub fn execute(
         sort_torrents(&mut torrents, sort);
     }
 
+    if ids_only {
+        for t in &torrents {
+            println!("{}", t.id);
+        }
+        return Ok(());
+    }
+
     if json_output {
         json::print_json(&torrents)
     } else {
         if torrents.is_empty() {
             println!("No torrents found.");
         } else {
-            table::print_torrent_list(&torrents);
+            table::print_torrent_list(&torrents, no_color);
         }
         Ok(())
     }
@@ -48,7 +57,7 @@ fn filter_torrents(torrents: Vec<Torrent>, filter: &FilterStatus) -> Vec<Torrent
         .collect()
 }
 
-fn sort_torrents(torrents: &mut [Torrent], sort: &SortField) {
+pub(crate) fn sort_torrents(torrents: &mut [Torrent], sort: &SortField) {
     torrents.sort_by(|a, b| match sort {
         SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         SortField::Size => a.total_size.cmp(&b.total_size),

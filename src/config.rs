@@ -13,6 +13,9 @@ pub struct Config {
     pub username: Option<String>,
     pub password: Option<String>,
     pub json: bool,
+    pub no_color: bool,
+    pub on_complete_script: Option<String>,
+    pub on_complete_webhook: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -23,6 +26,9 @@ impl std::fmt::Debug for Config {
             .field("username", &self.username)
             .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
             .field("json", &self.json)
+            .field("no_color", &self.no_color)
+            .field("on_complete_script", &self.on_complete_script)
+            .field("on_complete_webhook", &self.on_complete_webhook)
             .finish()
     }
 }
@@ -31,6 +37,13 @@ impl std::fmt::Debug for Config {
 struct ConfigFile {
     default: Option<ProfileConfig>,
     profiles: Option<HashMap<String, ProfileConfig>>,
+    notifications: Option<NotificationConfig>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+struct NotificationConfig {
+    on_complete: Option<String>,
+    webhook: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -94,7 +107,12 @@ pub fn resolve(cli: &Cli) -> Result<Config, Error> {
 fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
     // Layer 1: Config file
     let config_path = cli.config.clone().unwrap_or_else(default_config_path);
-    let file_profile = match load_config_file(&config_path)? {
+    let config_file = load_config_file(&config_path)?;
+    let notifications = config_file
+        .as_ref()
+        .and_then(|f| f.notifications.clone())
+        .unwrap_or_default();
+    let file_profile = match config_file {
         Some(f) => {
             let env_profile = std::env::var("TSM_PROFILE").ok();
             let profile_name = cli
@@ -138,12 +156,17 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         .or(env_password)
         .or(file_profile.password);
 
+    let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
+
     Ok(Config {
         host,
         port,
         username,
         password,
         json: cli.json,
+        no_color,
+        on_complete_script: notifications.on_complete,
+        on_complete_webhook: notifications.webhook,
     })
 }
 
@@ -170,6 +193,7 @@ mod tests {
             json,
             config: Some(PathBuf::from("/nonexistent/config.toml")),
             profile: None,
+            no_color: false,
             command: crate::cli::Command::Session,
         }
     }

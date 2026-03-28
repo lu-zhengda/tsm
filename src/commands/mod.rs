@@ -1,8 +1,15 @@
 pub mod add;
+pub mod config_cmd;
+pub mod health;
 pub mod info;
+pub mod label;
 pub mod list;
 pub mod login;
+pub mod relocate;
 pub mod remove;
+pub mod search;
 pub mod session;
 pub mod speed;
 pub mod start_stop;
+pub mod top;
+pub mod watch;

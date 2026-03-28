@@ -37,6 +37,10 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub profile: Option<String>,
 
+    /// Disable colored output
+    #[arg(long = "no-color", global = true)]
+    pub no_color: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -52,6 +56,36 @@ pub enum Command {
         /// Sort by field
         #[arg(long)]
         sort: Option<SortField>,
+
+        /// Output only torrent IDs (one per line)
+        #[arg(long)]
+        ids_only: bool,
+    },
+
+    /// Search torrents by name
+    Search {
+        /// Search query (case-insensitive substring match)
+        query: String,
+
+        /// Sort by field
+        #[arg(long)]
+        sort: Option<SortField>,
+    },
+
+    /// Move torrent data to a new location
+    #[command(name = "move")]
+    Move {
+        /// Torrent ID
+        id: i64,
+
+        /// New location path
+        path: String,
+    },
+
+    /// Manage torrent labels
+    Label {
+        #[command(subcommand)]
+        action: LabelAction,
     },
 
     /// Add a torrent (file path, magnet link, or URL)
@@ -143,6 +177,42 @@ pub enum Command {
         path: Option<String>,
     },
 
+    /// Watch a directory and auto-add .torrent files
+    Watch {
+        /// Directory to watch
+        dir: String,
+
+        /// Add torrents in paused state
+        #[arg(long)]
+        paused: bool,
+
+        /// Download directory for added torrents
+        #[arg(long)]
+        download_dir: Option<String>,
+
+        /// Delete .torrent files after adding
+        #[arg(long)]
+        delete_after_add: bool,
+
+        /// Enable completion notifications
+        #[arg(long)]
+        notify: bool,
+    },
+
+    /// Live dashboard with auto-refresh
+    Top {
+        /// Refresh interval in seconds
+        #[arg(long, default_value_t = 2)]
+        interval: u64,
+    },
+
+    /// Show resolved configuration
+    #[command(name = "config")]
+    ConfigShow,
+
+    /// Check connectivity, disk space, and port status
+    Health,
+
     /// Save connection credentials to config file
     Login {
         /// Profile name to save as
@@ -154,6 +224,29 @@ pub enum Command {
     Completions {
         /// Shell type
         shell: clap_complete::Shell,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum LabelAction {
+    /// Add a label to a torrent
+    Add {
+        /// Torrent ID
+        id: i64,
+        /// Label to add
+        label: String,
+    },
+    /// Remove a label from a torrent
+    Remove {
+        /// Torrent ID
+        id: i64,
+        /// Label to remove
+        label: String,
+    },
+    /// List labels on a torrent
+    List {
+        /// Torrent ID
+        id: i64,
     },
 }
 
