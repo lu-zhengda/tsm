@@ -2,6 +2,11 @@
 name = "tsm"
 version = "0.1.0"
 edition = "2024"
+description = "A CLI for Transmission BitTorrent client"
+license = "MIT"
+repository = "https://github.com/lu-zhengda/tsm"
+keywords = ["cli", "torrent", "transmission", "bittorrent"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
