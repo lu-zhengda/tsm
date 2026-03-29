@@ -1,0 +1,14 @@
+{
+  "name": "tsm",
+  "version": "0.6.0",
+  "description": "Transmission BitTorrent client management — add, monitor, organize, and automate torrents via the tsm CLI",
+  "author": {
+    "name": "lu-zhengda",
+    "url": "https://github.com/lu-zhengda"
+  },
+  "homepage": "https://github.com/lu-zhengda/tsm",
+  "repository": "https://github.com/lu-zhengda/tsm",
+  "license": "MIT",
+  "keywords": ["torrent", "transmission", "bittorrent", "download", "automation"],
+  "skills": "./skills/"
+}
