@@ -93,7 +93,21 @@ fn main() {
         Command::Remove { id, delete } => commands::remove::execute(&client, *id, *delete),
         Command::Verify { id } => commands::start_stop::execute_verify(&client, *id),
         Command::Info { id } => commands::info::execute_info(&client, *id, config.json),
-        Command::Files { id } => commands::info::execute_files(&client, *id, config.json),
+        Command::Files {
+            id,
+            priority,
+            priority_indices,
+            skip,
+            unskip,
+        } => commands::info::execute_files(
+            &client,
+            *id,
+            priority.as_ref(),
+            priority_indices.as_deref(),
+            skip.as_deref(),
+            unskip.as_deref(),
+            config.json,
+        ),
         Command::Speed {
             id,
             set_down,
@@ -121,6 +135,10 @@ fn main() {
             commands::session::execute_free(&client, path.as_deref(), config.json)
         }
         Command::Health => commands::health::execute(&client, config.json),
+        Command::Sequential { id, on, off } => {
+            commands::sequential::execute(&client, *id, *on, *off, config.json)
+        }
+        Command::Reannounce { id } => commands::reannounce::execute(&client, *id),
         Command::Tracker { action } => commands::tracker::execute(&client, action, config.json),
         Command::Policy { action } => {
             commands::policy::execute(&client, action, &config, config.json)

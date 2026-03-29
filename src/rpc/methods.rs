@@ -74,8 +74,8 @@ pub fn torrent_get_detail(client: &TransmissionClient, id: i64) -> Result<Torren
 pub fn torrent_get_files(
     client: &TransmissionClient,
     id: i64,
-) -> Result<(String, Vec<TorrentFile>), Error> {
-    let params = json!({ "fields": ["id", "name", "files"], "ids": [id] });
+) -> Result<(String, Vec<TorrentFile>, Vec<TorrentFileStat>), Error> {
+    let params = json!({ "fields": ["id", "name", "files", "priorities", "wanted"], "ids": [id] });
     let result = client.request("torrent-get", Some(params))?;
 
     let torrents_value = result
@@ -101,7 +101,65 @@ pub fn torrent_get_files(
         .map(|f| serde_json::from_value(f.clone()).unwrap_or_default())
         .unwrap_or_default();
 
-    Ok((name, files))
+    // Build file stats from priorities and wanted arrays
+    let priorities: Vec<i64> = torrent
+        .get("priorities")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+        .unwrap_or_default();
+
+    let wanted: Vec<bool> = torrent
+        .get("wanted")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|v| {
+                    // Handle both bool and integer representations
+                    v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let stats: Vec<TorrentFileStat> = (0..files.len())
+        .map(|i| TorrentFileStat {
+            priority: priorities.get(i).copied().unwrap_or(0),
+            wanted: wanted.get(i).copied().unwrap_or(true),
+        })
+        .collect();
+
+    Ok((name, files, stats))
+}
+
+pub fn torrent_set_file_properties(
+    client: &TransmissionClient,
+    id: i64,
+    priority_high: Option<&[usize]>,
+    priority_normal: Option<&[usize]>,
+    priority_low: Option<&[usize]>,
+    files_wanted: Option<&[usize]>,
+    files_unwanted: Option<&[usize]>,
+) -> Result<Value, Error> {
+    let mut params = serde_json::Map::new();
+    params.insert("ids".to_string(), json!([id]));
+
+    if let Some(indices) = priority_high {
+        params.insert("priority-high".to_string(), json!(indices));
+    }
+    if let Some(indices) = priority_normal {
+        params.insert("priority-normal".to_string(), json!(indices));
+    }
+    if let Some(indices) = priority_low {
+        params.insert("priority-low".to_string(), json!(indices));
+    }
+    if let Some(indices) = files_wanted {
+        params.insert("files-wanted".to_string(), json!(indices));
+    }
+    if let Some(indices) = files_unwanted {
+        params.insert("files-unwanted".to_string(), json!(indices));
+    }
+
+    client.request("torrent-set", Some(Value::Object(params)))
 }
 
 pub fn torrent_add(
@@ -209,6 +267,47 @@ pub fn torrent_set_labels(
 ) -> Result<Value, Error> {
     let params = json!({ "ids": [id], "labels": labels });
     client.request("torrent-set", Some(params))
+}
+
+pub fn torrent_set_sequential(
+    client: &TransmissionClient,
+    id: i64,
+    enable: bool,
+) -> Result<Value, Error> {
+    let params = json!({ "ids": [id], "sequential_download": enable });
+    client.request("torrent-set", Some(params))
+}
+
+pub fn torrent_get_sequential(
+    client: &TransmissionClient,
+    id: i64,
+) -> Result<(String, Option<bool>), Error> {
+    let params = json!({ "fields": ["id", "name", "sequential_download"], "ids": [id] });
+    let result = client.request("torrent-get", Some(params))?;
+
+    let torrents = result
+        .get("torrents")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::Rpc("Missing 'torrents' field".to_string()))?;
+
+    let torrent = torrents
+        .first()
+        .ok_or_else(|| Error::TorrentNotFound(id.to_string()))?;
+
+    let name = torrent
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("Unknown")
+        .to_string();
+
+    let sequential = torrent.get("sequential_download").and_then(|v| v.as_bool());
+
+    Ok((name, sequential))
+}
+
+pub fn torrent_reannounce(client: &TransmissionClient, id: i64) -> Result<Value, Error> {
+    let params = json!({ "ids": [id] });
+    client.request("torrent-reannounce", Some(params))
 }
 
 pub fn torrent_get_tracker_stats(

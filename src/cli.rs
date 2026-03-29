@@ -136,10 +136,26 @@ pub enum Command {
         id: i64,
     },
 
-    /// List files in a torrent
+    /// List files in a torrent, or set file priority/skip
     Files {
         /// Torrent ID
         id: i64,
+
+        /// Set file priority (requires --priority-indices)
+        #[arg(long, requires = "priority_indices")]
+        priority: Option<FilePriority>,
+
+        /// File indices for priority change (comma-separated, 0-based)
+        #[arg(long = "priority-indices", value_delimiter = ',')]
+        priority_indices: Option<Vec<usize>>,
+
+        /// Skip files (comma-separated indices, 0-based)
+        #[arg(long, value_delimiter = ',')]
+        skip: Option<Vec<usize>>,
+
+        /// Unskip files (comma-separated indices, 0-based)
+        #[arg(long, value_delimiter = ',')]
+        unskip: Option<Vec<usize>>,
     },
 
     /// Show or set speed limits (session-level or per-torrent)
@@ -227,6 +243,26 @@ pub enum Command {
 
     /// Check connectivity, disk space, and port status
     Health,
+
+    /// Toggle sequential download mode (Transmission 4.0+)
+    Sequential {
+        /// Torrent ID
+        id: i64,
+
+        /// Enable sequential download
+        #[arg(long, conflicts_with = "off")]
+        on: bool,
+
+        /// Disable sequential download
+        #[arg(long, conflicts_with = "on")]
+        off: bool,
+    },
+
+    /// Force tracker reannounce
+    Reannounce {
+        /// Torrent ID
+        id: i64,
+    },
 
     /// Manage torrent trackers
     Tracker {
@@ -329,6 +365,13 @@ pub enum PolicyAction {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum FilePriority {
+    High,
+    Normal,
+    Low,
 }
 
 #[derive(Debug, Clone, ValueEnum)]

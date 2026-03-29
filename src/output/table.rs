@@ -161,13 +161,13 @@ pub fn print_torrent_detail(t: &TorrentDetail) {
     }
 }
 
-pub fn print_torrent_files(name: &str, files: &[TorrentFile]) {
+pub fn print_torrent_files(name: &str, files: &[TorrentFile], stats: &[TorrentFileStat]) {
     println!("Torrent: {name}");
     println!();
 
     let mut table = Table::new();
     table.set_content_arrangement(ContentArrangement::Dynamic);
-    table.set_header(vec!["#", "Name", "Size", "Done"]);
+    table.set_header(vec!["#", "Name", "Size", "Done", "Priority", "Wanted"]);
 
     for (i, f) in files.iter().enumerate() {
         let progress = if f.length > 0 {
@@ -179,15 +179,37 @@ pub fn print_torrent_files(name: &str, files: &[TorrentFile]) {
             "0%".to_string()
         };
 
+        let stat = stats.get(i);
+        let priority = match stat.map(|s| s.priority).unwrap_or(0) {
+            1 => "High",
+            -1 => "Low",
+            _ => "Normal",
+        };
+        let wanted = if stat.map(|s| s.wanted).unwrap_or(true) {
+            "Yes"
+        } else {
+            "No"
+        };
+
         table.add_row(vec![
             i.to_string(),
             f.name.clone(),
             format_size(f.length),
             progress,
+            priority.to_string(),
+            wanted.to_string(),
         ]);
     }
 
     println!("{table}");
+}
+
+pub fn priority_string(priority: i64) -> &'static str {
+    match priority {
+        1 => "High",
+        -1 => "Low",
+        _ => "Normal",
+    }
 }
 
 pub fn print_session_info(session: &serde_json::Value) {
