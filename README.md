@@ -34,7 +34,7 @@ Both tools talk to the same [Transmission RPC API](https://github.com/transmissi
 | Port mapping / peer limits / blocklist | Yes | No |
 | Rename torrent / find data | Yes | No |
 
-**In short:** `transmission-remote` is the complete low-level interface for every daemon setting. `tsm` covers day-to-day torrent management with better output, automation, and scripting support. Use both — they talk to the same server.
+**In short:** `transmission-remote` is the complete low-level interface for every daemon setting. `tsm` covers day-to-day torrent management with better output, automation, and scripting support. Pick whichever fits your workflow — they talk to the same server and can be used interchangeably.
 
 ## Install
 
