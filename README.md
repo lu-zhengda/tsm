@@ -2,6 +2,8 @@
 
 A CLI for [Transmission](https://transmissionbt.com/) BitTorrent client.
 
+Requires a running Transmission instance with RPC enabled — either `transmission-daemon` or the desktop app (Transmission-Qt/GTK) with remote access turned on. This tool connects to the [Transmission RPC API](https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md) over HTTP/HTTPS.
+
 ## Install
 
 ### Homebrew (macOS/Linux)
