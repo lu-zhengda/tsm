@@ -8,6 +8,7 @@ pub enum Error {
     Rpc(String),
     Config(String),
     Filter(String),
+    Keychain(String),
     TorrentNotFound(String),
     Io(std::io::Error),
 }
@@ -24,6 +25,7 @@ impl fmt::Display for Error {
             Error::Rpc(msg) => write!(f, "RPC error: {msg}"),
             Error::Config(msg) => write!(f, "Configuration error: {msg}"),
             Error::Filter(msg) => write!(f, "Invalid filter: {msg}"),
+            Error::Keychain(msg) => write!(f, "Keychain error: {msg}"),
             Error::TorrentNotFound(id) => write!(f, "Torrent not found: {id}"),
             Error::Io(err) => write!(f, "IO error: {err}"),
         }
@@ -42,7 +44,7 @@ impl Error {
     pub fn exit_code(&self) -> i32 {
         match self {
             Error::Connection(_) | Error::Auth | Error::SessionExpired | Error::Rpc(_) => 1,
-            Error::Config(_) | Error::Filter(_) => 2,
+            Error::Config(_) | Error::Filter(_) | Error::Keychain(_) => 2,
             Error::TorrentNotFound(_) => 3,
             Error::Io(_) => 1,
         }

@@ -53,7 +53,7 @@ fn validate_profile_name(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn execute(profile_name: &str) -> Result<(), Error> {
+pub fn execute(profile_name: &str, use_keychain: bool) -> Result<(), Error> {
     validate_profile_name(profile_name)?;
 
     println!("Configuring profile: {profile_name}");
@@ -96,6 +96,23 @@ pub fn execute(profile_name: &str) -> Result<(), Error> {
         .unwrap_or("unknown");
     println!("OK (Transmission {version})");
 
+    // Store password in Keychain if requested
+    let config_password = if use_keychain {
+        if let Some(real_password) = &password {
+            crate::keychain::store_password(
+                crate::keychain::SERVICE_NAME,
+                profile_name,
+                real_password,
+            )?;
+            println!("Password stored in macOS Keychain (service: tsm, account: {profile_name})");
+            Some(crate::keychain::KEYCHAIN_SENTINEL.to_string())
+        } else {
+            None
+        }
+    } else {
+        password
+    };
+
     // Save to config file
     let config_path = crate::config::default_config_path();
     save_profile(
@@ -104,7 +121,7 @@ pub fn execute(profile_name: &str) -> Result<(), Error> {
         &host,
         port,
         &username,
-        &password,
+        &config_password,
     )?;
 
     println!("Config saved to {}", config_path.display());

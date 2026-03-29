@@ -216,9 +216,33 @@ tsm free
 ```bash
 tsm login                       # configure default profile
 tsm login --profile seedbox     # configure a named profile
+tsm login --keychain            # store password in macOS Keychain
 ```
 
 Interactively prompts for host, port, and credentials, tests the connection, then saves to `~/.config/tsm/config.toml` with `600` permissions.
+
+### Keychain Support (macOS)
+
+With `--keychain`, the password is stored in macOS Keychain instead of the config file. The config file stores a `keychain:` sentinel marker, and the real password is retrieved from Keychain at runtime.
+
+```bash
+# Store credentials in Keychain
+tsm login --keychain
+tsm login --profile seedbox --keychain
+
+# All subsequent commands use Keychain transparently
+tsm list                        # password fetched from Keychain automatically
+
+# CLI flags and env vars still override Keychain
+tsm --password override list
+TSM_PASSWORD=override tsm list
+
+# Remove a stored password from Keychain
+security delete-generic-password -s tsm -a default
+security delete-generic-password -s tsm -a seedbox
+```
+
+Keychain support requires macOS. On other platforms, `--keychain` returns an error.
 
 ### Config Resolution
 

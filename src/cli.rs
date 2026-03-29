@@ -281,6 +281,10 @@ pub enum Command {
         /// Profile name to save as
         #[arg(long, default_value = "default")]
         profile: String,
+
+        /// Store password in macOS Keychain instead of config file
+        #[arg(long, default_value_t = false)]
+        keychain: bool,
     },
 
     /// Generate shell completions

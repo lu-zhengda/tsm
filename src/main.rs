@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod error;
 mod filter;
+mod keychain;
 mod notify_hook;
 mod output;
 mod rpc;
@@ -26,8 +27,8 @@ fn main() {
         return;
     }
 
-    if let Command::Login { profile } = &cli.command {
-        if let Err(e) = commands::login::execute(profile) {
+    if let Command::Login { profile, keychain } = &cli.command {
+        if let Err(e) = commands::login::execute(profile, *keychain) {
             eprintln!("Error: {e}");
             process::exit(e.exit_code());
         }

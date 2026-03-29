@@ -128,16 +128,14 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         .as_ref()
         .map(|f| f.policies.clone())
         .unwrap_or_default();
+    let env_profile = std::env::var("TSM_PROFILE").ok();
+    let profile_name = cli
+        .profile
+        .as_deref()
+        .or(env_profile.as_deref())
+        .unwrap_or("default");
     let file_profile = match config_file {
-        Some(f) => {
-            let env_profile = std::env::var("TSM_PROFILE").ok();
-            let profile_name = cli
-                .profile
-                .as_deref()
-                .or(env_profile.as_deref())
-                .unwrap_or("default");
-            resolve_profile(&f, profile_name)
-        }
+        Some(f) => resolve_profile(&f, profile_name),
         None => ProfileConfig::default(),
     };
 
@@ -171,6 +169,16 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         .clone()
         .or(env_password)
         .or(file_profile.password);
+
+    // If password is the keychain sentinel, retrieve the real password from Keychain
+    let password = if password.as_deref() == Some(crate::keychain::KEYCHAIN_SENTINEL) {
+        Some(crate::keychain::find_password(
+            crate::keychain::SERVICE_NAME,
+            profile_name,
+        )?)
+    } else {
+        password
+    };
 
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
 
