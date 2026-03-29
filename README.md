@@ -8,7 +8,7 @@ Requires a running Transmission instance with RPC enabled — either `transmissi
 
 Both tools talk to the same Transmission RPC API. They complement each other.
 
-**Use `transmission-remote` when you need:**
+**Use [`transmission-remote`](https://formulae.brew.sh/formula/transmission-cli) when you need:**
 - Low-level daemon configuration (encryption, DHT, PEX, LPD, blocklists, peer limits, port settings)
 - Bandwidth groups
 - Per-file priority and download selection within a torrent
