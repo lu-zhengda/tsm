@@ -6,28 +6,35 @@ Requires a running Transmission instance with RPC enabled — either `transmissi
 
 ## tsm vs. transmission-remote
 
-Both tools talk to the same Transmission RPC API. They complement each other.
+Both tools talk to the same [Transmission RPC API](https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md). They complement each other.
 
-**Use [`transmission-remote`](https://formulae.brew.sh/formula/transmission-cli) when you need:**
-- Low-level daemon configuration (encryption, DHT, PEX, LPD, blocklists, peer limits, port settings)
-- Bandwidth groups
-- Per-file priority and download selection within a torrent
-- Alt-speed scheduling (time-based on/off)
-- Sequential download mode
-- The official, battle-tested tool that ships with Transmission
+| Capability | [`transmission-remote`](https://formulae.brew.sh/formula/transmission-cli) | `tsm` |
+|---|---|---|
+| List / start / stop / remove torrents | Yes | Yes |
+| Add torrents (file, magnet, URL) | Yes | Yes |
+| Torrent info and file listing | Yes | Yes, with colored tables |
+| Per-file priority and skip/unskip | Yes | Yes |
+| Per-torrent speed limits and priority | Yes | Yes |
+| Sequential download | Yes | Yes (`tsm sequential`) |
+| Tracker add / remove | Yes | Yes, plus bulk replace across all torrents |
+| Reannounce | Yes | Yes |
+| Labels | Yes | Yes |
+| Filter / search torrents | Basic (`-F`) | Advanced query language (`ratio>2.0 AND label:movies AND age<7d`) |
+| Live TUI dashboard | No | Yes (`tsm top`) |
+| Directory watch + auto-add | No | Yes (`tsm watch`) |
+| Completion hooks with templates | Daemon-level script only | Template variables (`{name}`, `{download_dir}`, etc.) + inline `--on-complete` |
+| Config-driven seeding policies | No | Yes (`tsm policy apply` by label) |
+| Multi-profile config / login wizard | No (manual auth flags) | Yes (`tsm login`, `--profile`) |
+| Health check (connectivity + disk + port) | No | Yes (`tsm health`) |
+| JSON output on all commands | Raw RPC JSON | Structured JSON (`--json`) |
+| Shell completions | No | Yes (bash, zsh, fish) |
+| Daemon settings (encryption, DHT, PEX, LPD, cache) | Yes | No — use `transmission-remote` |
+| Bandwidth groups | Yes | No |
+| Alt-speed scheduling (time-based) | Yes | No (toggle only) |
+| Port mapping / peer limits / blocklist | Yes | No |
+| Rename torrent / find data | Yes | No |
 
-**Use `tsm` when you need:**
-- Readable output — colored tables, progress bars, live TUI dashboard (`tsm top`)
-- Filtering and search — `tsm list --filter "ratio>2.0 AND label:movies AND age<7d"`
-- Config-driven seeding policies — apply ratio/idle limits by label across all torrents
-- Bulk tracker operations — replace a tracker URL across every torrent in one command
-- Completion hooks with template variables — `--on-complete "script.sh {name} {download_dir}"`
-- Directory watching with auto-add and completion notifications
-- JSON output on every read command for scripting (`--json`)
-- Multi-profile config with `tsm login` for managing multiple servers
-- Health checks — connectivity, disk space, and port status in one command
-
-**In short:** `transmission-remote` is the Swiss Army knife for daemon settings. `tsm` is the automation and monitoring layer for day-to-day torrent management.
+**In short:** `transmission-remote` is the complete low-level interface for every daemon setting. `tsm` covers day-to-day torrent management with better output, automation, and scripting support. Use both — they talk to the same server.
 
 ## Install
 
@@ -89,16 +96,22 @@ tsm stop 42
 tsm remove 42
 tsm remove 42 --delete           # also delete data
 tsm verify 42
+tsm reannounce 42                # force tracker reannounce
 tsm move 42 /new/path            # relocate torrent data
+tsm sequential 42                # enable sequential download
+tsm sequential 42 --off          # disable sequential download
 
 # Labels
 tsm label add 42 linux
 tsm label list 42
 tsm label remove 42 linux
 
-# Torrent details
+# Torrent details and file management
 tsm info 42
-tsm files 42
+tsm files 42                                             # list with priority/wanted columns
+tsm files 42 --priority high --priority-indices 0,1      # set file priority
+tsm files 42 --skip 2,3                                  # skip files
+tsm files 42 --unskip 2                                  # unskip files
 ```
 
 ## Tracker Management
