@@ -3,6 +3,7 @@ mod client;
 mod commands;
 mod config;
 mod error;
+mod filter;
 mod notify_hook;
 mod output;
 mod rpc;

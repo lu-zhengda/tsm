@@ -49,9 +49,9 @@ pub struct Cli {
 pub enum Command {
     /// List all torrents
     List {
-        /// Filter by status
+        /// Filter expression (e.g., "downloading", "ratio>2.0 AND label:movies")
         #[arg(long)]
-        filter: Option<FilterStatus>,
+        filter: Option<String>,
 
         /// Sort by field
         #[arg(long)]

@@ -1,13 +1,14 @@
-use crate::cli::{FilterStatus, SortField};
+use crate::cli::SortField;
 use crate::client::TransmissionClient;
 use crate::error::Error;
+use crate::filter;
 use crate::output::{json, table};
 use crate::rpc::methods;
 use crate::rpc::types::Torrent;
 
 pub fn execute(
     client: &TransmissionClient,
-    filter: &Option<FilterStatus>,
+    filter_str: &Option<String>,
     sort: &Option<SortField>,
     ids_only: bool,
     json_output: bool,
@@ -15,8 +16,9 @@ pub fn execute(
 ) -> Result<(), Error> {
     let mut torrents = methods::torrent_get_list(client)?;
 
-    if let Some(filter) = filter {
-        torrents = filter_torrents(torrents, filter);
+    if let Some(f) = filter_str {
+        let expr = filter::parse_filter(f)?;
+        torrents.retain(|t| filter::matches(t, &expr));
     }
 
     if let Some(sort) = sort {
@@ -42,21 +44,6 @@ pub fn execute(
     }
 }
 
-fn filter_torrents(torrents: Vec<Torrent>, filter: &FilterStatus) -> Vec<Torrent> {
-    let status_codes: Vec<i64> = match filter {
-        FilterStatus::Downloading => vec![4],
-        FilterStatus::Seeding => vec![6],
-        FilterStatus::Paused | FilterStatus::Stopped => vec![0],
-        FilterStatus::Checking => vec![1, 2],
-        FilterStatus::Queued => vec![3, 5],
-    };
-
-    torrents
-        .into_iter()
-        .filter(|t| status_codes.contains(&t.status))
-        .collect()
-}
-
 pub(crate) fn sort_torrents(torrents: &mut [Torrent], sort: &SortField) {
     torrents.sort_by(|a, b| match sort {
         SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
@@ -69,9 +56,9 @@ pub(crate) fn sort_torrents(torrents: &mut [Torrent], sort: &SortField) {
             .upload_ratio
             .partial_cmp(&b.upload_ratio)
             .unwrap_or(std::cmp::Ordering::Equal),
-        SortField::SpeedDown => b.rate_download.cmp(&a.rate_download), // Descending
-        SortField::SpeedUp => b.rate_upload.cmp(&a.rate_upload),       // Descending
-        SortField::Added => b.added_date.cmp(&a.added_date),           // Newest first
+        SortField::SpeedDown => b.rate_download.cmp(&a.rate_download),
+        SortField::SpeedUp => b.rate_upload.cmp(&a.rate_upload),
+        SortField::Added => b.added_date.cmp(&a.added_date),
     });
 }
 
@@ -97,25 +84,27 @@ mod tests {
 
     #[test]
     fn test_filter_downloading() {
-        let torrents = vec![
+        let mut torrents = vec![
             make_torrent(1, "a", 4, 100, 0.5),
             make_torrent(2, "b", 6, 200, 1.0),
             make_torrent(3, "c", 0, 300, 0.0),
         ];
-        let filtered = filter_torrents(torrents, &FilterStatus::Downloading);
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].id, 1);
+        let expr = filter::parse_filter("downloading").unwrap();
+        torrents.retain(|t| filter::matches(t, &expr));
+        assert_eq!(torrents.len(), 1);
+        assert_eq!(torrents[0].id, 1);
     }
 
     #[test]
     fn test_filter_seeding() {
-        let torrents = vec![
+        let mut torrents = vec![
             make_torrent(1, "a", 4, 100, 0.5),
             make_torrent(2, "b", 6, 200, 1.0),
         ];
-        let filtered = filter_torrents(torrents, &FilterStatus::Seeding);
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].id, 2);
+        let expr = filter::parse_filter("seeding").unwrap();
+        torrents.retain(|t| filter::matches(t, &expr));
+        assert_eq!(torrents.len(), 1);
+        assert_eq!(torrents[0].id, 2);
     }
 
     #[test]
