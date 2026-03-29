@@ -6,6 +6,14 @@ use serde::Deserialize;
 use crate::cli::Cli;
 use crate::error::Error;
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct SeedPolicy {
+    pub name: String,
+    pub match_label: String,
+    pub seed_ratio: Option<f64>,
+    pub seed_idle_minutes: Option<i64>,
+}
+
 #[derive(Clone)]
 pub struct Config {
     pub host: String,
@@ -16,6 +24,7 @@ pub struct Config {
     pub no_color: bool,
     pub on_complete_script: Option<String>,
     pub on_complete_webhook: Option<String>,
+    pub policies: Vec<SeedPolicy>,
 }
 
 impl std::fmt::Debug for Config {
@@ -29,6 +38,7 @@ impl std::fmt::Debug for Config {
             .field("no_color", &self.no_color)
             .field("on_complete_script", &self.on_complete_script)
             .field("on_complete_webhook", &self.on_complete_webhook)
+            .field("policies", &self.policies)
             .finish()
     }
 }
@@ -38,6 +48,8 @@ struct ConfigFile {
     default: Option<ProfileConfig>,
     profiles: Option<HashMap<String, ProfileConfig>>,
     notifications: Option<NotificationConfig>,
+    #[serde(default)]
+    policies: Vec<SeedPolicy>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -112,6 +124,10 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         .as_ref()
         .and_then(|f| f.notifications.clone())
         .unwrap_or_default();
+    let policies = config_file
+        .as_ref()
+        .map(|f| f.policies.clone())
+        .unwrap_or_default();
     let file_profile = match config_file {
         Some(f) => {
             let env_profile = std::env::var("TSM_PROFILE").ok();
@@ -167,6 +183,7 @@ fn resolve_from_env(cli: &Cli) -> Result<Config, Error> {
         no_color,
         on_complete_script: notifications.on_complete,
         on_complete_webhook: notifications.webhook,
+        policies,
     })
 }
 

@@ -142,8 +142,11 @@ pub enum Command {
         id: i64,
     },
 
-    /// Show or set speed limits
+    /// Show or set speed limits (session-level or per-torrent)
     Speed {
+        /// Torrent ID (omit for session-level)
+        id: Option<i64>,
+
         /// Set download speed limit (KB/s)
         #[arg(long)]
         set_down: Option<i64>,
@@ -152,17 +155,25 @@ pub enum Command {
         #[arg(long)]
         set_up: Option<i64>,
 
-        /// Enable alt-speed mode
+        /// Enable alt-speed mode (session only)
         #[arg(long, default_value_t = false)]
         alt_on: bool,
 
-        /// Disable alt-speed mode
+        /// Disable alt-speed mode (session only)
         #[arg(long, default_value_t = false)]
         alt_off: bool,
 
         /// Remove all speed limits
         #[arg(long, default_value_t = false)]
         no_limit: bool,
+
+        /// Bandwidth priority: high, normal, or low (per-torrent only)
+        #[arg(long)]
+        priority: Option<BandwidthPriority>,
+
+        /// Exempt torrent from session speed limits (per-torrent only)
+        #[arg(long, default_value_t = false)]
+        no_honor_global: bool,
     },
 
     /// Show session info
@@ -197,6 +208,10 @@ pub enum Command {
         /// Enable completion notifications
         #[arg(long)]
         notify: bool,
+
+        /// Run command on torrent completion (template vars: {name} {id} {download_dir} {size} {ratio})
+        #[arg(long)]
+        on_complete: Option<String>,
     },
 
     /// Live dashboard with auto-refresh
@@ -212,6 +227,18 @@ pub enum Command {
 
     /// Check connectivity, disk space, and port status
     Health,
+
+    /// Manage torrent trackers
+    Tracker {
+        #[command(subcommand)]
+        action: TrackerAction,
+    },
+
+    /// Manage seeding policies
+    Policy {
+        #[command(subcommand)]
+        action: PolicyAction,
+    },
 
     /// Save connection credentials to config file
     Login {
@@ -258,6 +285,67 @@ pub enum FilterStatus {
     Stopped,
     Checking,
     Queued,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TrackerAction {
+    /// List trackers for a torrent
+    List {
+        /// Torrent ID
+        id: i64,
+    },
+    /// Add a tracker to a torrent
+    Add {
+        /// Torrent ID
+        id: i64,
+        /// Tracker announce URL
+        url: String,
+    },
+    /// Remove a tracker from a torrent
+    Remove {
+        /// Torrent ID
+        id: i64,
+        /// Tracker announce URL
+        url: String,
+    },
+    /// Replace a tracker URL across all torrents
+    Replace {
+        /// Old tracker URL to replace
+        #[arg(long)]
+        from: String,
+        /// New tracker URL
+        #[arg(long)]
+        to: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PolicyAction {
+    /// List configured seeding policies
+    List,
+    /// Apply matching policies to torrents
+    Apply {
+        /// Show what would change without applying
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum BandwidthPriority {
+    Low,
+    Normal,
+    High,
+}
+
+impl BandwidthPriority {
+    pub fn to_rpc_value(&self) -> i64 {
+        match self {
+            BandwidthPriority::Low => -1,
+            BandwidthPriority::Normal => 0,
+            BandwidthPriority::High => 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, ValueEnum)]

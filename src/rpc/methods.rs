@@ -211,6 +211,148 @@ pub fn torrent_set_labels(
     client.request("torrent-set", Some(params))
 }
 
+pub fn torrent_get_tracker_stats(
+    client: &TransmissionClient,
+    id: i64,
+) -> Result<(String, Vec<TrackerStat>), Error> {
+    let params = json!({ "fields": ["id", "name", "trackerStats", "trackerList"], "ids": [id] });
+    let result = client.request("torrent-get", Some(params))?;
+
+    let torrents = result
+        .get("torrents")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::Rpc("Missing 'torrents' field".to_string()))?;
+
+    let torrent = torrents
+        .first()
+        .ok_or_else(|| Error::TorrentNotFound(id.to_string()))?;
+
+    let name = torrent
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("Unknown")
+        .to_string();
+
+    let stats: Vec<TrackerStat> = torrent
+        .get("trackerStats")
+        .map(|s| serde_json::from_value(s.clone()).unwrap_or_default())
+        .unwrap_or_default();
+
+    Ok((name, stats))
+}
+
+pub fn torrent_get_tracker_list(client: &TransmissionClient, id: i64) -> Result<String, Error> {
+    let params = json!({ "fields": ["id", "trackerList"], "ids": [id] });
+    let result = client.request("torrent-get", Some(params))?;
+
+    let torrents = result
+        .get("torrents")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::Rpc("Missing 'torrents' field".to_string()))?;
+
+    let torrent = torrents
+        .first()
+        .ok_or_else(|| Error::TorrentNotFound(id.to_string()))?;
+
+    Ok(torrent
+        .get("trackerList")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string())
+}
+
+pub fn torrent_set_tracker_list(
+    client: &TransmissionClient,
+    id: i64,
+    tracker_list: &str,
+) -> Result<Value, Error> {
+    let params = json!({ "ids": [id], "trackerList": tracker_list });
+    client.request("torrent-set", Some(params))
+}
+
+pub fn torrent_set_bandwidth(
+    client: &TransmissionClient,
+    id: i64,
+    download_limit: Option<i64>,
+    upload_limit: Option<i64>,
+    priority: Option<i64>,
+    honors_session: Option<bool>,
+    no_limit: bool,
+) -> Result<Value, Error> {
+    let mut params = serde_json::Map::new();
+    params.insert("ids".to_string(), json!([id]));
+
+    if no_limit {
+        params.insert("downloadLimited".to_string(), json!(false));
+        params.insert("uploadLimited".to_string(), json!(false));
+    }
+
+    if let Some(dl) = download_limit {
+        params.insert("downloadLimit".to_string(), json!(dl));
+        params.insert("downloadLimited".to_string(), json!(true));
+    }
+
+    if let Some(ul) = upload_limit {
+        params.insert("uploadLimit".to_string(), json!(ul));
+        params.insert("uploadLimited".to_string(), json!(true));
+    }
+
+    if let Some(p) = priority {
+        params.insert("bandwidthPriority".to_string(), json!(p));
+    }
+
+    if let Some(honors) = honors_session {
+        params.insert("honorsSessionLimits".to_string(), json!(honors));
+    }
+
+    client.request("torrent-set", Some(Value::Object(params)))
+}
+
+pub fn torrent_get_bandwidth(client: &TransmissionClient, id: i64) -> Result<Value, Error> {
+    let params = json!({
+        "fields": [
+            "id", "name",
+            "downloadLimit", "downloadLimited",
+            "uploadLimit", "uploadLimited",
+            "bandwidthPriority", "honorsSessionLimits"
+        ],
+        "ids": [id]
+    });
+    let result = client.request("torrent-get", Some(params))?;
+
+    let torrents = result
+        .get("torrents")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::Rpc("Missing 'torrents' field".to_string()))?;
+
+    torrents
+        .first()
+        .cloned()
+        .ok_or_else(|| Error::TorrentNotFound(id.to_string()))
+}
+
+pub fn torrent_set_seed_limits(
+    client: &TransmissionClient,
+    id: i64,
+    ratio: Option<f64>,
+    idle_minutes: Option<i64>,
+) -> Result<Value, Error> {
+    let mut params = serde_json::Map::new();
+    params.insert("ids".to_string(), json!([id]));
+
+    if let Some(r) = ratio {
+        params.insert("seedRatioLimit".to_string(), json!(r));
+        params.insert("seedRatioMode".to_string(), json!(1)); // 1 = per-torrent
+    }
+
+    if let Some(idle) = idle_minutes {
+        params.insert("seedIdleLimit".to_string(), json!(idle));
+        params.insert("seedIdleMode".to_string(), json!(1)); // 1 = per-torrent
+    }
+
+    client.request("torrent-set", Some(Value::Object(params)))
+}
+
 pub fn port_test(client: &TransmissionClient) -> Result<bool, Error> {
     let result = client.request("port-test", None)?;
     Ok(result

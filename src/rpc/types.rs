@@ -103,6 +103,22 @@ pub struct Peer {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TrackerStat {
+    pub announce: String,
+    pub host: String,
+    pub id: i64,
+    #[serde(rename = "lastAnnounceResult")]
+    pub last_announce_result: String,
+    #[serde(rename = "lastAnnounceSucceeded")]
+    pub last_announce_succeeded: bool,
+    #[serde(rename = "seederCount")]
+    pub seeder_count: i64,
+    #[serde(rename = "leecherCount")]
+    pub leecher_count: i64,
+    pub tier: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TorrentFile {
     pub name: String,
     pub length: i64,

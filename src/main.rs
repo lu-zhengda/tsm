@@ -95,18 +95,24 @@ fn main() {
         Command::Info { id } => commands::info::execute_info(&client, *id, config.json),
         Command::Files { id } => commands::info::execute_files(&client, *id, config.json),
         Command::Speed {
+            id,
             set_down,
             set_up,
             alt_on,
             alt_off,
             no_limit,
+            priority,
+            no_honor_global,
         } => commands::speed::execute(
             &client,
+            *id,
             *set_down,
             *set_up,
             *alt_on,
             *alt_off,
             *no_limit,
+            priority.as_ref(),
+            *no_honor_global,
             config.json,
         ),
         Command::Session => commands::session::execute_session(&client, config.json),
@@ -115,24 +121,32 @@ fn main() {
             commands::session::execute_free(&client, path.as_deref(), config.json)
         }
         Command::Health => commands::health::execute(&client, config.json),
+        Command::Tracker { action } => commands::tracker::execute(&client, action, config.json),
+        Command::Policy { action } => {
+            commands::policy::execute(&client, action, &config, config.json)
+        }
         Command::Watch {
             dir,
             paused,
             download_dir,
             delete_after_add,
             notify,
+            on_complete,
         } => commands::watch::execute(
             &client,
             dir,
             *paused,
             download_dir.as_deref(),
             *delete_after_add,
-            if *notify { Some(&config) } else { None },
+            if *notify || on_complete.is_some() {
+                Some(&config)
+            } else {
+                None
+            },
+            on_complete.as_deref(),
         ),
         Command::Top { interval } => commands::top::execute(&client, *interval),
-        Command::Login { .. } | Command::Completions { .. } | Command::ConfigShow => {
-            unreachable!()
-        }
+        Command::Login { .. } | Command::Completions { .. } | Command::ConfigShow => unreachable!(),
     };
 
     if let Err(e) = result {

@@ -183,6 +183,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -201,6 +202,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -218,6 +220,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         let client = TransmissionClient::new(&config).unwrap();
@@ -236,6 +239,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         assert!(TransmissionClient::new(&config).is_err());
@@ -249,6 +253,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         assert!(TransmissionClient::new(&config2).is_err());
@@ -265,6 +270,7 @@ mod tests {
             no_color: false,
             on_complete_script: None,
             on_complete_webhook: None,
+            policies: vec![],
         };
 
         assert!(TransmissionClient::new(&config).is_err());

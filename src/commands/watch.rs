@@ -10,6 +10,7 @@ use notify::{EventKind, RecursiveMode, Watcher};
 use crate::client::TransmissionClient;
 use crate::config::Config;
 use crate::error::Error;
+use crate::notify_hook::{self, CompletionContext};
 use crate::rpc::methods;
 
 pub fn execute(
@@ -19,6 +20,7 @@ pub fn execute(
     download_dir: Option<&str>,
     delete_after_add: bool,
     notify_config: Option<&Config>,
+    on_complete: Option<&str>,
 ) -> Result<(), Error> {
     let dir_path = Path::new(dir);
     if !dir_path.is_dir() {
@@ -51,8 +53,9 @@ pub fn execute(
         .map_err(|e| Error::Config(format!("Failed to watch directory: {e}")))?;
 
     // Track completed torrents for notifications
+    let should_notify = notify_config.is_some() || on_complete.is_some();
     let mut completed_ids: HashSet<i64> = HashSet::new();
-    if notify_config.is_some() {
+    if should_notify {
         // Seed with already-completed torrents so we don't fire for them
         if let Ok(torrents) = methods::torrent_get_list(client) {
             for t in &torrents {
@@ -80,11 +83,11 @@ pub fn execute(
         }
 
         // Check for newly completed torrents every ~30 seconds
-        if let Some(config) = notify_config {
+        if should_notify {
             poll_counter += 1;
             if poll_counter >= 30 {
                 poll_counter = 0;
-                check_completions(client, config, &mut completed_ids);
+                check_completions(client, notify_config, on_complete, &mut completed_ids);
             }
         }
     }
@@ -95,7 +98,8 @@ pub fn execute(
 
 fn check_completions(
     client: &TransmissionClient,
-    config: &Config,
+    config: Option<&Config>,
+    on_complete: Option<&str>,
     completed_ids: &mut HashSet<i64>,
 ) {
     let torrents = match methods::torrent_get_list(client) {
@@ -107,7 +111,39 @@ fn check_completions(
         if t.percent_done >= 1.0 && !completed_ids.contains(&t.id) {
             completed_ids.insert(t.id);
             println!("Completed: {} (ID: {})", t.name, t.id);
-            crate::notify_hook::fire_completion(&t.name, t.id, config);
+
+            // Fetch detail for completion context
+            let (download_dir, size, ratio) = match methods::torrent_get_detail(client, t.id) {
+                Ok(detail) => (detail.download_dir, detail.total_size, detail.upload_ratio),
+                Err(_) => (String::new(), t.total_size, t.upload_ratio),
+            };
+
+            let ctx = CompletionContext {
+                name: t.name.clone(),
+                id: t.id,
+                download_dir,
+                size,
+                ratio,
+            };
+
+            if let Some(cfg) = config {
+                notify_hook::fire_completion(&ctx, cfg, on_complete);
+            } else if let Some(cmd) = on_complete {
+                // If no config for webhook but --on-complete was provided,
+                // still fire with a minimal config
+                let dummy_config = Config {
+                    host: String::new(),
+                    port: 0,
+                    username: None,
+                    password: None,
+                    json: false,
+                    no_color: false,
+                    on_complete_script: None,
+                    on_complete_webhook: None,
+                    policies: vec![],
+                };
+                notify_hook::fire_completion(&ctx, &dummy_config, Some(cmd));
+            }
         }
     }
 }

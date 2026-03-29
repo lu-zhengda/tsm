@@ -84,6 +84,7 @@ pub fn execute(profile_name: &str) -> Result<(), Error> {
         no_color: false,
         on_complete_script: None,
         on_complete_webhook: None,
+        policies: vec![],
     };
 
     let client = TransmissionClient::new(&config)?;
