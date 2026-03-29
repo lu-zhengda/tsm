@@ -2,11 +2,13 @@
 name = "transmission-cli"
 version = "0.6.0"
 edition = "2024"
-description = "A CLI for Transmission BitTorrent client"
+description = "A modern CLI for Transmission BitTorrent client — filtering, seeding policies, tracker management, and automation"
 license = "MIT"
 repository = "https://github.com/lu-zhengda/tsm"
-keywords = ["cli", "torrent", "transmission", "bittorrent"]
+homepage = "https://github.com/lu-zhengda/tsm"
+keywords = ["transmission", "torrent", "bittorrent", "cli", "automation"]
 categories = ["command-line-utilities"]
+readme = "README.md"
 
 [[bin]]
 name = "tsm"
