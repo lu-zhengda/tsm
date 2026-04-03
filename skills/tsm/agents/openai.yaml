@@ -1,0 +1,4 @@
+interface:
+  display_name: "tsm — Transmission CLI"
+  short_description: "Manage torrents via Transmission RPC"
+  default_prompt: "Use tsm to manage Transmission BitTorrent client — add torrents, check download status, manage trackers, set speed limits, apply seeding policies, or automate torrent workflows."

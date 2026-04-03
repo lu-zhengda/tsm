@@ -9,6 +9,32 @@
   "homepage": "https://github.com/lu-zhengda/tsm",
   "repository": "https://github.com/lu-zhengda/tsm",
   "license": "MIT",
-  "keywords": ["torrent", "transmission", "bittorrent", "download", "automation"],
-  "skills": "./skills/"
+  "keywords": [
+    "torrent",
+    "transmission",
+    "bittorrent",
+    "download",
+    "automation",
+    "seedbox",
+    "rpc"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "tsm — Transmission CLI",
+    "shortDescription": "Manage Transmission BitTorrent client via RPC",
+    "longDescription": "Add torrents, monitor downloads, manage trackers, set speed limits, apply seeding policies, and automate torrent workflows through the tsm CLI. Supports magnet links, .torrent files, per-file priority, labels, watch directories, and JSON output for scripting.",
+    "developerName": "lu-zhengda",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/lu-zhengda/tsm",
+    "defaultPrompt": [
+      "List my active downloads and show progress",
+      "Add this magnet link and set high priority",
+      "Clean up torrents seeded above 2.0 ratio"
+    ]
+  }
 }
